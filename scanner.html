@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pemindai QR Absensi Sekolah</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f7f5;color:#173f35;font:16px system-ui,-apple-system,Segoe UI,Arial,sans-serif;padding:18px}.wrap{max-width:680px;margin:0 auto}.card{background:#fff;border-radius:20px;padding:22px;margin:14px 0;box-shadow:0 8px 28px #173f3512}h1{font-size:24px;margin:0 0 8px}p{line-height:1.55;color:#587168}.btn{border:0;border-radius:12px;padding:13px 17px;font-weight:700;background:#176b52;color:white;cursor:pointer}.btn.secondary{background:#e8f2ee;color:#176b52}select{padding:12px;border:1px solid #ccd9d3;border-radius:10px;width:100%;font-size:16px;margin:8px 0 14px}#reader{width:100%;overflow:hidden;border-radius:14px}#msg{padding:13px;border-radius:12px;background:#edf4f0;line-height:1.5;overflow-wrap:anywhere}.small{font-size:13px;color:#667d73}
+</style></head><body><main class="wrap">
+<div class="card"><h1>Pemindai QR Absensi</h1><p>Izinkan kamera dan arahkan ke QR pada kartu siswa. Hasil scan akan dikirim ke aplikasi sekolah.</p><label for="status"><b>Status kehadiran</b></label><select id="status"><option>Hadir</option><option>Izin</option><option>Sakit</option><option>Alpa</option></select><button class="btn" id="start" onclick="startScan()">Mulai kamera</button> <button class="btn secondary" onclick="stopScan()">Hentikan</button><div id="reader" style="margin-top:16px"></div><p id="msg">Siap memulai pemindaian.</p><p class="small">Jangan bagikan URL halaman ini karena memuat sesi login petugas. Jika sesi kedaluwarsa, kembali ke aplikasi dan buka pemindai lagi.</p></div>
+<form id="submitForm" method="post" style="display:none"><input name="token" id="token"><input name="qrText" id="qrText"><input name="status" id="postStatus"></form>
+</main><script>
+const params=new URLSearchParams(location.search);const appUrl=params.get('app')||'';const token=params.get('token')||'';const initialStatus=params.get('status')||'Hadir';document.getElementById('status').value=['Hadir','Izin','Sakit','Alpa'].includes(initialStatus)?initialStatus:'Hadir';let scanner=null,busy=false;
+function message(t){document.getElementById('msg').textContent=t}
+async function startScan(){if(!appUrl||!token){message('Link tidak lengkap. Kembali ke aplikasi sekolah dan buka pemindai dari menu Absensi QR.');return}if(typeof Html5Qrcode==='undefined'){message('Library pemindai gagal dimuat. Periksa koneksi internet lalu muat ulang.');return}try{await stopScan();scanner=new Html5Qrcode('reader');await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:240}},async text=>{if(busy)return;busy=true;message('QR terbaca. Mengirim absensi ke Google Sheets…');try{await stopScan();document.getElementById('token').value=token;document.getElementById('qrText').value=text;document.getElementById('postStatus').value=document.getElementById('status').value;document.getElementById('submitForm').action=appUrl;document.getElementById('submitForm').submit()}catch(e){message('Gagal mengirim hasil scan: '+e.message);busy=false}},()=>{});message('Kamera aktif. Arahkan QR ke dalam kotak pemindaian.')}catch(e){message('Kamera tidak dapat dibuka: '+e.message+'. Pastikan halaman ini diakses melalui GitHub Pages HTTPS dan izin kamera diizinkan.')}}
+async function stopScan(){if(scanner){try{if(scanner.isScanning)await scanner.stop();scanner.clear()}catch(e){}scanner=null}}
+window.addEventListener('pagehide',stopScan);
+</script></body></html>
