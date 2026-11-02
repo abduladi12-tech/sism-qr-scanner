@@ -1,18 +1,37 @@
 <!doctype html>
-<html lang="id">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pemindai QR Absensi Sekolah</title>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scanner QR SISM</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f3f7f5;color:#173f35;font:16px system-ui,-apple-system,Segoe UI,Arial,sans-serif;padding:18px}.wrap{max-width:680px;margin:0 auto}.card{background:#fff;border-radius:20px;padding:22px;margin:14px 0;box-shadow:0 8px 28px #173f3512}h1{font-size:24px;margin:0 0 8px}p{line-height:1.55;color:#587168}.btn{border:0;border-radius:12px;padding:13px 17px;font-weight:700;background:#176b52;color:white;cursor:pointer}.btn.secondary{background:#e8f2ee;color:#176b52}select{padding:12px;border:1px solid #ccd9d3;border-radius:10px;width:100%;font-size:16px;margin:8px 0 14px}#reader{width:100%;overflow:hidden;border-radius:14px}#msg{padding:13px;border-radius:12px;background:#edf4f0;line-height:1.5;overflow-wrap:anywhere}.small{font-size:13px;color:#667d73}
-</style></head><body><main class="wrap">
-<div class="card"><h1>Pemindai QR Absensi</h1><p>Izinkan kamera dan arahkan ke QR pada kartu siswa. Hasil scan akan dikirim ke aplikasi sekolah.</p><label for="status"><b>Status kehadiran</b></label><select id="status"><option>Hadir</option><option>Izin</option><option>Sakit</option><option>Alpa</option></select><button class="btn" id="start" onclick="startScan()">Mulai kamera</button> <button class="btn secondary" onclick="stopScan()">Hentikan</button><div id="reader" style="margin-top:16px"></div><p id="msg">Siap memulai pemindaian.</p><p class="small">Jangan bagikan URL halaman ini karena memuat sesi login petugas. Jika sesi kedaluwarsa, kembali ke aplikasi dan buka pemindai lagi.</p></div>
-<form id="submitForm" method="post" style="display:none"><input name="token" id="token"><input name="qrText" id="qrText"><input name="status" id="postStatus"></form>
-</main><script>
-const params=new URLSearchParams(location.search);const appUrl=params.get('app')||'';const token=params.get('token')||'';const initialStatus=params.get('status')||'Hadir';document.getElementById('status').value=['Hadir','Izin','Sakit','Alpa'].includes(initialStatus)?initialStatus:'Hadir';let scanner=null,busy=false;
-function message(t){document.getElementById('msg').textContent=t}
-async function startScan(){if(!appUrl||!token){message('Link tidak lengkap. Kembali ke aplikasi sekolah dan buka pemindai dari menu Absensi QR.');return}if(typeof Html5Qrcode==='undefined'){message('Library pemindai gagal dimuat. Periksa koneksi internet lalu muat ulang.');return}try{await stopScan();scanner=new Html5Qrcode('reader');await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:240}},async text=>{if(busy)return;busy=true;message('QR terbaca. Mengirim absensi ke Google Sheets…');try{await stopScan();document.getElementById('token').value=token;document.getElementById('qrText').value=text;document.getElementById('postStatus').value=document.getElementById('status').value;document.getElementById('submitForm').action=appUrl;document.getElementById('submitForm').submit()}catch(e){message('Gagal mengirim hasil scan: '+e.message);busy=false}},()=>{});message('Kamera aktif. Arahkan QR ke dalam kotak pemindaian.')}catch(e){message('Kamera tidak dapat dibuka: '+e.message+'. Pastikan halaman ini diakses melalui GitHub Pages HTTPS dan izin kamera diizinkan.')}}
-async function stopScan(){if(scanner){try{if(scanner.isScanning)await scanner.stop();scanner.clear()}catch(e){}scanner=null}}
-window.addEventListener('pagehide',stopScan);
+*{box-sizing:border-box}body{margin:0;background:#f1f5f9;color:#16345b;padding:18px;font-family:Arial,sans-serif}
+main{max-width:560px;margin:auto;background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 28px #0f172a18}
+h1{font-size:22px;margin:0 0 8px}p{color:#64748b;line-height:1.5}#reader{width:100%;min-height:260px;border:1px dashed #b8c9df;border-radius:14px;overflow:hidden;margin:16px 0}
+button{border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;background:#0b4a91;color:#fff;margin:4px}.secondary{background:#e8eef6;color:#16416f}
+#status{padding:12px;background:#eff6ff;border-radius:10px;min-height:44px}.small{font-size:13px}
+</style><script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script></head>
+<body><main><h1>Scanner QR SISM</h1><p>Izinkan kamera. Arahkan QR kartu siswa ke bingkai. Hasil otomatis dikirim ke tab SISM.</p>
+<div id="reader"></div><button id="start">Mulai Kamera</button><button id="stop" class="secondary">Hentikan</button>
+<p id="status">Menunggu kamera diaktifkan.</p><p class="small">Biarkan tab SISM tetap terbuka dan login.</p></main>
+<script>
+let scanner=null,busy=false,lastText='',lastAt=0;const statusEl=document.getElementById('status');
+function show(s){statusEl.textContent=s}
+async function start(){
+ if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){show('Kamera membutuhkan HTTPS dan browser modern.');return}
+ if(!window.opener||window.opener.closed){show('Tab SISM tidak ditemukan. Buka scanner melalui tombol SISM.');return}
+ try{
+  scanner=new Html5Qrcode('reader');const cams=await Html5Qrcode.getCameras();
+  if(!cams.length){show('Kamera tidak ditemukan.');return}
+  const preferred=cams.find(c=>/back|rear|environment/i.test(c.label||''))||cams[0];
+  await scanner.start(preferred.id,{fps:10,qrbox:(w,h)=>{const s=Math.max(180,Math.min(280,Math.floor(Math.min(w,h)*.72)));return {width:s,height:s}}},
+   text=>{const now=Date.now();if(busy||(text===lastText&&now-lastAt<2500))return;busy=true;lastText=text;lastAt=now;
+    try{window.opener.postMessage({type:'SISM_QR_SCAN',qr:text},'*');show('QR terbaca. Mengirim ke SISM...')}catch(e){show('Gagal mengirim hasil ke SISM.');busy=false}},()=>{});
+  show('Kamera aktif. Arahkan QR siswa ke kamera.');
+ }catch(e){const n=e?.name||'Error',m=e?.message||String(e);
+  if(n==='NotAllowedError')show('Izin kamera ditolak. Izinkan kamera untuk domain GitHub Pages ini.');
+  else if(n==='NotReadableError')show('Kamera sedang digunakan aplikasi lain. Tutup aplikasi kamera/meeting.');
+  else show('Kamera gagal dibuka ('+n+'): '+m)}
+}
+async function stop(){if(scanner){try{if(scanner.isScanning)await scanner.stop()}catch(e){}try{await scanner.clear()}catch(e){}scanner=null}show('Kamera dihentikan.');busy=false}
+window.addEventListener('message',e=>{if(!window.opener||e.source!==window.opener||!e.data||e.data.type!=='SISM_QR_RESULT')return;show(e.data.message||(e.data.ok?'Absensi diterima.':'QR gagal diproses.'));busy=false});
+document.getElementById('start').addEventListener('click',start);document.getElementById('stop').addEventListener('click',stop);
+window.addEventListener('beforeunload',()=>{if(scanner&&scanner.isScanning)scanner.stop()});
 </script></body></html>
